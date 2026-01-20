@@ -46,20 +46,4 @@ Follow the hands-on steps in [lab.md](./lab.md) to:
 - How to verify certificate validity and trust chain
 - Practical troubleshooting techniques for authentication issues
 
-## Frequently Asked Questions
-
-**Do I need a special cluster?** Any Kubernetes cluster works - local or cloud-hosted.
-
-**Does this modify the cluster?** No. This lab only reads and inspects existing authentication data.
-
-**How does this relate to RBAC?** Authentication determines *who* you are. RBAC (covered in Lab 02) determines what you're allowed to do.
-
-**Can I reuse this material?** Yes. Feel free to adapt and share.
-
-## References
-
-- [Kubernetes Authentication Documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/)
-- [X.509 Certificates in Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/certificates/)
-- [kubeconfig Format](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-- [RBAC Authorization](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
 

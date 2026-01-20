@@ -14,15 +14,6 @@ You will:
 
 Understand how Pods authenticate to the Kubernetes API server using ServiceAccount tokens and how RBAC controls what those tokens are allowed to do.
 
-## Prerequisites
-
-- Access to a Kubernetes cluster (KillerCoda, Minikube, or cloud cluster)
-- `kubectl` command-line tool
-- Internet access inside Pods (to install `curl`)
-- Basic understanding of Kubernetes Pods and namespaces
-
-**Note:** This lab uses modern Kubernetes (1.24+) which handles ServiceAccount tokens differently than older versions. Tokens are created dynamically when Pods use them, not when ServiceAccounts are created.
-
 ## Difficulty Level & Time Estimate
 
 - **Level:** Intermediate ⭐⭐
@@ -40,6 +31,7 @@ Start fresh by creating a dedicated namespace for this lab:
 
 ```bash
 kubectl create ns lab-serviceaccount
+kubectl config set-context --current --namespace=lab-serviceaccount #optional it will reduce burden to give namespace in each command.
 ```
 
 This creates an isolated namespace for our lab experiments.
@@ -167,7 +159,6 @@ exit
 ```
 
 ---
-
 ### Step 6: Create a Custom ServiceAccount
 
 Custom ServiceAccounts allow fine-grained permission control. Create one:
@@ -307,6 +298,9 @@ APISERVER=https://kubernetes.default.svc
 # Note: We use /version (not /api/v1/version) because /version doesn't require RBAC
 curl -s --cacert $CACERT -H "Authorization: Bearer $TOKEN" \
   $APISERVER/version | head -20
+
+curl -s --cacert $CACERT -H "Authorization: Bearer $TOKEN" $APISERVER/api/v1/namespaces/lab-serviceaccount/pods
+
 ```
 
 Exit the Pod:
@@ -372,6 +366,10 @@ kubectl -n lab-serviceaccount auth can-i list pods \
 ```
 yes
 ```
+Verify in pod by running following command you should able to see api success with following commands:
+```bash
+curl -s --cacert $CACERT -H "Authorization: Bearer $TOKEN" $APISERVER/api/v1/namespaces/lab-serviceaccount/pods
+```
 
 **The difference:**
 Same token, same authentication, but now RBAC grants authorization.
@@ -386,19 +384,11 @@ To clean up all resources and return your cluster to its baseline state, follow 
 
 This removes all Kubernetes resources created during the lab (Pods, ServiceAccounts, Roles, RoleBindings):
 
-**Option 1 - Normal deletion (graceful, ~5-10 seconds):**
-```bash
-kubectl delete ns lab-serviceaccount
-```
 
 **Option 2 - Faster deletion (immediate, recommended):**
 ```bash
 kubectl delete ns lab-serviceaccount --grace-period=0 --force
 ```
-
-The second option is faster because:
-- `--grace-period=0` – Skip the 30-second graceful termination period
-- `--force` – Force immediate deletion without waiting for confirmation
 
 **Verify the namespace is deleted:**
 
@@ -417,74 +407,6 @@ Remove the YAML manifest file created in Step 7:
 ```bash
 rm -f alpine-app.yaml
 ```
-
-Verify it's removed:
-
-```bash
-ls alpine-app.yaml 2>/dev/null && echo "File still exists" || echo "File removed successfully"
-```
-
----
-
-**Step 12c: Verify clean state**
-
-Confirm your cluster is back to baseline:
-
-```bash
-# Check no lab-serviceaccount namespace exists
-kubectl get ns | grep lab-serviceaccount || echo "✓ Namespace removed"
-
-# Verify no temp files
-ls alpine-app.yaml 2>/dev/null || echo "✓ Temp files cleaned up"
-
-# Show remaining namespaces (should be default ones)
-echo "Remaining namespaces:"
-kubectl get ns
-```
-
-**Expected output:**
-- No `lab-serviceaccount` namespace
-- No `alpine-app.yaml` file
-- Only default namespaces like `default`, `kube-system`, `kube-public`, etc.
-
----
-
-## Cleanup Summary
-
-Your lab environment is now back to baseline state:
-
-| Resource | Status |
-|---|---|
-| `lab-serviceaccount` namespace | ✓ Deleted |
-| Pods (alpine-default, alpine-app) | ✓ Deleted |
-| ServiceAccounts (app-user) | ✓ Deleted |
-| Roles and RoleBindings | ✓ Deleted |
-| YAML manifest files | ✓ Removed |
-
----
-
-## Key Concepts Recap
-
-### Authentication vs. Authorization
-
-| Concept | Purpose | In This Lab |
-|---|---|---|
-| **Authentication** | Proves who you are | ServiceAccount token |
-| **Authorization** | Decides what you can do | RBAC Roles and RoleBindings |
-
-### ServiceAccount Tokens
-
-- **Location:** Mounted at `/var/run/secrets/kubernetes.io/serviceaccount/token`
-- **Purpose:** Used as bearer token in HTTP requests to API server
-- **Identity:** Identifies as `system:serviceaccount:<namespace>:<name>`
-- **Automatic:** Kubernetes creates and maintains tokens automatically
-
-### RBAC Components
-
-- **Role** – Defines what actions are allowed on which resources
-- **RoleBinding** – Connects a Role to a ServiceAccount, Group, or User
-- **Permissions flow:** ServiceAccount → RoleBinding → Role → Allowed actions
-
 ---
 
 ## What You Learned
@@ -501,40 +423,6 @@ Your lab environment is now back to baseline state:
 ✓ `kubectl auth can-i` helps verify permissions before and after RBAC changes  
 ✓ JWT payload includes namespace, ServiceAccount name, and identity claims  
 
----
-
-## Next Steps
-
-1. **Explore ClusterRoles** – Understand cluster-wide permissions (not namespace-scoped)
-2. **Review RBAC documentation** – Kubernetes official RBAC guide
-3. **Experiment with other resources** – Grant permissions for other Kubernetes resources
-4. **Combine multiple Roles** – Use multiple RoleBindings for complex permissions
-5. **Check Lab 03** – Explore other security topics in this series
-
----
-
-## Troubleshooting
-
-**Q: `kubectl run --serviceaccount` gives "unknown flag" error?**  
-A: Modern kubectl removed this flag. Use YAML manifests instead (see Step 7). Create a YAML file with `serviceAccountName:` field in the Pod spec.
-
-**Q: "Permission denied" when calling the API server?**  
-A: This likely means authorization failed (RBAC denied the request). Use Step 9 and Step 11 to verify permissions.
-
-**Q: ServiceAccount token file not found?**  
-A: Ensure the Pod has started completely. Wait a moment and try again.
-
-**Q: `kubectl auth can-i` returns unexpected results?**  
-A: Verify you're using the correct ServiceAccount name: `system:serviceaccount:lab-serviceaccount:app-user`
-
-**Q: `kubectl describe sa app-user` shows `Tokens: none`?**  
-A: This is normal in Kubernetes 1.24+! Tokens are created dynamically when Pods use the ServiceAccount, not stored as Secrets. The token exists inside the running Pod at `/var/run/secrets/kubernetes.io/serviceaccount/token`. Use Step 8a to extract and view the actual token.
-
-**Q: How do I see the actual token value?**  
-A: Run Step 8a - exec into the Pod and `cat /var/run/secrets/kubernetes.io/serviceaccount/token`. This shows the JWT token that's mounted in the Pod.
-
-**Q: How do I clean up the Pod created from YAML?**  
-A: Either delete the individual Pod with `kubectl -n lab-serviceaccount delete pod alpine-app` or use Step 12 to delete the entire namespace.
 
 ---
 
