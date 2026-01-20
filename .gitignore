@@ -1,0 +1,10 @@
+# Ignore common files and directories
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.log
+*.tmp
+temp/
